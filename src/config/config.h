@@ -91,6 +91,7 @@
 #define USDLOG_TASK_PRI         1
 #define USDWRITE_TASK_PRI       0
 #define PCA9685_TASK_PRI        3
+#define USER_IO_TASK_PRI        3
 
 #define SYSLINK_TASK_PRI        5
 #define USBLINK_TASK_PRI        3
@@ -124,6 +125,7 @@
 #define ZRANGER_TASK_NAME       "ZRANGER"
 #define USDLOG_TASK_NAME        "USDLOG"
 #define USDWRITE_TASK_NAME      "USDWRITE"
+#define USER_IO_TASK_NAME       "USER-IO"
 #define PCA9685_TASK_NAME       "PCA9685"
 
 //Task stack sizes
@@ -148,6 +150,7 @@
 #define ZRANGER_TASK_STACKSIZE        (2 * configMINIMAL_STACK_SIZE)
 #define USDLOG_TASK_STACKSIZE         (2 * configMINIMAL_STACK_SIZE)
 #define USDWRITE_TASK_STACKSIZE       (2 * configMINIMAL_STACK_SIZE)
+#define USER_IO_TASK_STACKSIZE        (2 * configMINIMAL_STACK_SIZE)
 #define PCA9685_TASK_STACKSIZE        (2 * configMINIMAL_STACK_SIZE)
 
 //The radio channel. From 0 to 125

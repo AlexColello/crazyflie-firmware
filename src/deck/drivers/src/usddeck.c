@@ -40,6 +40,7 @@
 #include "queue.h"
 #include "task.h"
 #include "timers.h"
+#include "semphr.h"
 
 #include "ff.h"
 #include "fatfs_sd.h"
@@ -71,6 +72,7 @@ static void csLow(void);
 
 static void usdLogTask(void* prm);
 static void usdWriteTask(void* prm);
+static void usdUserIOTask();
 
 static crc crcTable[256];
 
@@ -90,7 +92,6 @@ static FIL logFile;
 
 static xTimerHandle timer;
 static void usdTimer(xTimerHandle timer);
-
 
 // Low lever driver functions
 static sdSpiContext_t sdSpiContext =
@@ -190,6 +191,7 @@ static void csLow(void)
 /*********** Deck driver initialization ***************/
 
 static bool isInit = false;
+static SemaphoreHandle_t mutex;
 
 static void usdInit(DeckInfo *info)
 {
@@ -197,6 +199,8 @@ static void usdInit(DeckInfo *info)
       /* create driver structure */
       FATFS_AddDriver(&fatDrv, 0);
       vTaskDelay(M2T(100));
+      mutex = xSemaphoreCreateMutex();
+
       /* try to mount drives before creating the tasks */
       if (f_mount(&FatFs, "", 1) == FR_OK)
         {
@@ -279,6 +283,7 @@ static void usdLogTask(void* prm)
 {
   int floatIds[usdLogConfig.floatSlots];
   int intIds[usdLogConfig.intSlots];
+
   {
     uint8_t usedSlots = 0;
     /* acquire log ids */
@@ -572,12 +577,22 @@ static void usdWriteTask(void* usdLogQueue)
       uint8_t intBytes = usdLogConfig.intSlots * 4;
       usdLogQueuePtr_t usdLogQueuePtr;
 
+      /* creates user input task */
+      TaskHandle_t xHandleUserTask;
+  	  xTaskCreate(usdUserIOTask, USER_IO_TASK_NAME,
+              USER_IO_TASK_STACKSIZE, NULL,
+              USER_IO_TASK_PRI, &xHandleUserTask);
+
       while (1) {
           /* sleep */
           vTaskSuspend(NULL);
           /* determine how many sets can be written */
           setsToWrite = (uint8_t)uxQueueMessagesWaiting(usdLogQueue);
           /* try to open file in append mode */
+          if(xSemaphoreTake(mutex, portMAX_DELAY) != pdTRUE){
+        	DEBUG_PRINT("Did not recieve mutex.");
+        	continue;
+          }
           if (f_open(&logFile, usdLogConfig.filename, FA_OPEN_APPEND | FA_WRITE)
               != FR_OK)
             continue;
@@ -602,11 +617,40 @@ static void usdWriteTask(void* usdLogQueue)
           f_write(&logFile, &crcValue, 4, &bytesWritten);
           /* close file */
           f_close(&logFile);
+          xSemaphoreGive(mutex);
       }
   } else f_mount(NULL, "", 0);
   /* something went wrong */
   vTaskDelete(NULL);
 }
+
+static void usdUserIOTask(){
+
+  	unsigned int bytesWritten;
+	FIL userFile;
+
+ 	char* message = " test string";
+	while(1){
+		/* sleep */
+        vTaskSuspend(NULL);
+
+        if(xSemaphoreTake(mutex, portMAX_DELAY) != pdTRUE){
+        	DEBUG_PRINT("Did not recieve mutex in time.");
+        	continue;
+        }
+
+		if (f_open(&userFile, "WriteTest.txt", FA_OPEN_APPEND | FA_WRITE) != FR_OK){
+			DEBUG_PRINT("Can't open file.");
+            continue;
+		}
+
+        f_write(&userFile, message, (uint8_t)strlen(message), &bytesWritten);
+        f_close(&userFile);
+
+        xSemaphoreGive(mutex);
+	}
+}
+
 
 static bool usdTest()
 {
