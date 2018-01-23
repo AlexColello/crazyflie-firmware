@@ -433,6 +433,7 @@ static void usdLogTask(void* prm)
   QueueHandle_t usdLogQueue =
       xQueueCreate(usdLogConfig.bufferSize, sizeof(usdLogQueuePtr_t));
 
+   DEBUG_PRINT("Starting write task\n");
   /* create usd-write task */
   TaskHandle_t xHandleWriteTask;
   xTaskCreate(usdWriteTask, USDWRITE_TASK_NAME,
@@ -477,6 +478,7 @@ static void usdLogTask(void* prm)
 
 static void usdWriteTask(void* usdLogQueue)
 {
+	DEBUG_PRINT("Starting usdWriteTask\n");
   /* necessary variables for f_write */
   unsigned int bytesWritten;
   uint8_t setsToWrite = 0;
@@ -577,6 +579,7 @@ static void usdWriteTask(void* usdLogQueue)
       uint8_t intBytes = usdLogConfig.intSlots * 4;
       usdLogQueuePtr_t usdLogQueuePtr;
 
+      DEBUG_PRINT("Starting Write Task \n");
       /* creates user input task */
       TaskHandle_t xHandleUserTask;
   	  xTaskCreate(usdUserIOTask, USER_IO_TASK_NAME,
@@ -590,7 +593,7 @@ static void usdWriteTask(void* usdLogQueue)
           setsToWrite = (uint8_t)uxQueueMessagesWaiting(usdLogQueue);
           /* try to open file in append mode */
           if(xSemaphoreTake(mutex, portMAX_DELAY) != pdTRUE){
-        	DEBUG_PRINT("Did not recieve mutex.");
+        	DEBUG_PRINT("Did not recieve mutex.\n");
         	continue;
           }
           if (f_open(&logFile, usdLogConfig.filename, FA_OPEN_APPEND | FA_WRITE)
@@ -626,6 +629,7 @@ static void usdWriteTask(void* usdLogQueue)
 
 static void usdUserIOTask(){
 
+	DEBUG_PRINT("In User IO Task \n");
   	unsigned int bytesWritten;
 	FIL userFile;
 
@@ -635,12 +639,12 @@ static void usdUserIOTask(){
         vTaskSuspend(NULL);
 
         if(xSemaphoreTake(mutex, portMAX_DELAY) != pdTRUE){
-        	DEBUG_PRINT("Did not recieve mutex in time.");
+        	DEBUG_PRINT("Did not recieve mutex in time.\n");
         	continue;
         }
 
 		if (f_open(&userFile, "WriteTest.txt", FA_OPEN_APPEND | FA_WRITE) != FR_OK){
-			DEBUG_PRINT("Can't open file.");
+			DEBUG_PRINT("Can't open file.\n");
             continue;
 		}
 
