@@ -191,7 +191,6 @@ static void csLow(void)
 /*********** Deck driver initialization ***************/
 
 static bool isInit = false;
-static SemaphoreHandle_t mutex;
 
 static void usdInit(DeckInfo *info)
 {
@@ -199,7 +198,6 @@ static void usdInit(DeckInfo *info)
       /* create driver structure */
       FATFS_AddDriver(&fatDrv, 0);
       vTaskDelay(M2T(100));
-      mutex = xSemaphoreCreateMutex();
 
       /* try to mount drives before creating the tasks */
       if (f_mount(&FatFs, "", 1) == FR_OK)
@@ -478,7 +476,8 @@ static void usdLogTask(void* prm)
 
 static void usdWriteTask(void* usdLogQueue)
 {
-	DEBUG_PRINT("Starting usdWriteTask\n");
+
+  DEBUG_PRINT("In write task\n");
   /* necessary variables for f_write */
   unsigned int bytesWritten;
   uint8_t setsToWrite = 0;
@@ -579,11 +578,13 @@ static void usdWriteTask(void* usdLogQueue)
       uint8_t intBytes = usdLogConfig.intSlots * 4;
       usdLogQueuePtr_t usdLogQueuePtr;
 
-      DEBUG_PRINT("Starting Write Task \n");
+      /* creates mutex */
+      SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
+      
       /* creates user input task */
       TaskHandle_t xHandleUserTask;
   	  xTaskCreate(usdUserIOTask, USER_IO_TASK_NAME,
-              USER_IO_TASK_STACKSIZE, NULL,
+              USER_IO_TASK_STACKSIZE, mutex,
               USER_IO_TASK_PRI, &xHandleUserTask);
 
       while (1) {
@@ -596,9 +597,12 @@ static void usdWriteTask(void* usdLogQueue)
         	DEBUG_PRINT("Did not recieve mutex.\n");
         	continue;
           }
-          if (f_open(&logFile, usdLogConfig.filename, FA_OPEN_APPEND | FA_WRITE)
-              != FR_OK)
+          if (f_open(&logFile, usdLogConfig.filename, FA_OPEN_APPEND | FA_WRITE) != FR_OK){
+          	DEBUG_PRINT("Could not open log file.\n");
             continue;
+          }
+          DEBUG_PRINT("File open in Log task.\n");
+
           f_write(&logFile, &setsToWrite, 1, &bytesWritten);
           crcValue = crcByByte(&setsToWrite, 1, INITIAL_REMAINDER, 0, crcTable);
           do {
@@ -627,16 +631,14 @@ static void usdWriteTask(void* usdLogQueue)
   vTaskDelete(NULL);
 }
 
-static void usdUserIOTask(){
+static void usdUserIOTask(void* mutex){
 
 	DEBUG_PRINT("In User IO Task \n");
   	unsigned int bytesWritten;
 	FIL userFile;
 
- 	char* message = " test string";
+ 	char* message = "Thank God ";
 	while(1){
-		/* sleep */
-        vTaskSuspend(NULL);
 
         if(xSemaphoreTake(mutex, portMAX_DELAY) != pdTRUE){
         	DEBUG_PRINT("Did not recieve mutex in time.\n");
@@ -648,10 +650,13 @@ static void usdUserIOTask(){
             continue;
 		}
 
+		DEBUG_PRINT("File open in IO task.\n");
+
         f_write(&userFile, message, (uint8_t)strlen(message), &bytesWritten);
         f_close(&userFile);
 
         xSemaphoreGive(mutex);
+        taskYIELD();
 	}
 }
 

@@ -91,7 +91,7 @@
 #define USDLOG_TASK_PRI         1
 #define USDWRITE_TASK_PRI       0
 #define PCA9685_TASK_PRI        3
-#define USER_IO_TASK_PRI        3
+#define USER_IO_TASK_PRI        0
 
 #define SYSLINK_TASK_PRI        5
 #define USBLINK_TASK_PRI        3
